@@ -23,10 +23,12 @@ const fetchChannelMessages = async (channelId: string, oldest: string, latest: s
   }
 };
 
-const summarizeText = async (text: string) => {
+// Add a new parameter to summarizeText to accept detail level
+const summarizeText = async (text: string, detailLevel: "low" | "high") => {
   try {
+    const prompt = detailLevel === "low" ? "Provide a brief summary:" : "Provide a detailed summary:";
     const response = await openAI.chat.completions.create({
-      model: "gpt-3.5-turbo", // Correct model identifier
+      model: "gpt-3.5-turbo",
       messages: [
         {
           role: "system",
@@ -34,7 +36,7 @@ const summarizeText = async (text: string) => {
         },
         {
           role: "user",
-          content: `Summarize this conversation:\n\n${text}`,
+          content: `${prompt}\n\n${text}`,
         },
       ],
     });
@@ -61,29 +63,58 @@ const sendDM = async (userId: string, text: string) => {
   }
 };
 
-const main = async () => {
-  const channelId = "C1234567890"; // Replace with your Channel ID
+// Function to fetch all channels and return the one that matches the provided name
+const findChannelIdByName = async (channelName: string): Promise<string | undefined> => {
+  try {
+    // Remove the '#' if it's included in the channelName argument
+    const cleanChannelName = channelName.replace(/^#/, "");
+    let cursor; // For pagination
+    do {
+      const response = await slackClient.conversations.list({
+        exclude_archived: true,
+        types: "public_channel,private_channel", // Adjust based on your needs
+        cursor,
+      });
+
+      const foundChannel = response.channels?.find((channel) => channel.name === cleanChannelName);
+      if (foundChannel) {
+        return foundChannel.id;
+      }
+
+      cursor = response.response_metadata?.next_cursor;
+    } while (cursor);
+
+    console.error("Channel not found");
+  } catch (error) {
+    console.error("Error fetching channels:", error);
+  }
+};
+
+// Modify the main function to include the logic for resolving channelName to channelId
+const main = async (commandInput: string) => {
+  // Example command input: "/summary low #general 2d"
+  const [, detailLevel, channelName, daysInput] = commandInput.split(" ");
+
+  // Resolve channelName to channelId
+  const channelId = await findChannelIdByName(channelName);
+  if (!channelId) {
+    console.error(`Failed to find channel: ${channelName}`);
+    return;
+  }
+
   const userId = "U1234567890"; // Replace with the User ID to receive the summary
 
-  // Example user input: "2d"
-  const userInput = "2d"; // This would be dynamically obtained based on user input
-
-  // Extract the number of days from the input
-  const days = parseInt(userInput.replace(/[^\d]/g, ""), 10);
-
-  // Calculate the 'oldest' timestamp
+  const days = parseInt(daysInput.replace(/[^\d]/g, ""), 10);
   const now = new Date();
   const oldestDate = new Date(now.setDate(now.getDate() - days));
   const oldest = Math.floor(oldestDate.getTime() / 1000).toString();
-
-  // Use the current time as the 'latest' timestamp
   const latest = Math.floor(Date.now() / 1000).toString();
 
   const messages = await fetchChannelMessages(channelId, oldest, latest);
   if (messages) {
-    const summary = await summarizeText(messages);
+    const summary = await summarizeText(messages, detailLevel as "low" | "high");
     await sendDM(userId, `Here's the summary:\n${summary}`);
   }
 };
 
-main().catch(console.error);
+main("/summary low #general 2d").catch(console.error);
