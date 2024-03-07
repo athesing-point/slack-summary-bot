@@ -40,6 +40,7 @@ const body_parser_1 = __importDefault(require("body-parser"));
 const web_api_1 = require("@slack/web-api"); // Import WebClient from Slack Web API for Slack operations
 const openai_1 = require("openai"); // Import OpenAI for AI operations
 const dotenv = __importStar(require("dotenv")); // Import dotenv for environment variable management
+const path_1 = __importDefault(require("path"));
 dotenv.config(); // Load environment variables from .env file
 // Initialize Slack WebClient with bot token from environment variables
 const slackClient = new web_api_1.WebClient(process.env.SLACK_BOT_TOKEN);
@@ -188,6 +189,9 @@ app.post("/slack/summary", (req, res) => __awaiter(void 0, void 0, void 0, funct
         });
     }
 }));
+app.get("/", (req, res) => {
+    res.sendFile(path_1.default.join(__dirname, "public", "index.html"));
+});
 // Start the server
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);

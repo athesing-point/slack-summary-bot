@@ -3,6 +3,7 @@ import bodyParser from "body-parser";
 import { WebClient } from "@slack/web-api"; // Import WebClient from Slack Web API for Slack operations
 import { OpenAI } from "openai"; // Import OpenAI for AI operations
 import * as dotenv from "dotenv"; // Import dotenv for environment variable management
+import path from "path";
 
 dotenv.config(); // Load environment variables from .env file
 
@@ -22,6 +23,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Middleware to parse JSON bodies
 app.use(bodyParser.json());
+
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, "public")));
 
 // Function to fetch messages from a Slack channel within a given time range
 const fetchChannelMessages = async (channelId: string, oldest: string, latest: string) => {
