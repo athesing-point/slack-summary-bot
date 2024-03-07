@@ -39,7 +39,7 @@ const summarizeText = async (text: string, detailLevel: "low" | "high") => {
       messages: [
         {
           role: "system",
-          content: "You are a helpful assistant whose purpose is to give people summaries of the messages or content you receive",
+          content: "You are a helpful assistant whose purpose is to give people summaries of the messages you recieve.",
         },
         {
           role: "user",
