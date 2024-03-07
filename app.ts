@@ -125,8 +125,21 @@ app.post("/slack/summary", async (req: Request, res: Response) => {
   // Extract the text and user_id from the request body
   const { text, user_id } = req.body;
 
-  // Parse command input for detail level, channel name, and days back to fetch messages
-  const [, detailLevel, channelName, daysInput] = text.split(" ");
+  // Split the text into parts
+  const parts = text.split(" ");
+  // Ensure there are at least three parts: detailLevel, channelName, and daysInput
+  if (parts.length < 3) {
+    res.json({
+      response_type: "ephemeral",
+      text: "Please provide the command in the format: /summary [low|high] #channel-name [number]d",
+    });
+    return;
+  }
+
+  // Assign the first part to detailLevel, the last part to daysInput, and join the rest as the channelName
+  const detailLevel = parts[0];
+  const daysInput = parts[parts.length - 1];
+  const channelName = parts.slice(1, -1).join(" ");
 
   // Resolve channel name to channel ID
   const channelId = await findChannelIdByName(channelName);
