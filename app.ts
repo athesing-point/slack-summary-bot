@@ -64,8 +64,20 @@ const sendDM = async (userId: string, text: string) => {
 const main = async () => {
   const channelId = "C1234567890"; // Replace with your Channel ID
   const userId = "U1234567890"; // Replace with the User ID to receive the summary
-  const oldest = "1612454400"; // Start of time range (epoch time)
-  const latest = "1612540800"; // End of time range (epoch time)
+
+  // Example user input: "2d"
+  const userInput = "2d"; // This would be dynamically obtained based on user input
+
+  // Extract the number of days from the input
+  const days = parseInt(userInput.replace(/[^\d]/g, ""), 10);
+
+  // Calculate the 'oldest' timestamp
+  const now = new Date();
+  const oldestDate = new Date(now.setDate(now.getDate() - days));
+  const oldest = Math.floor(oldestDate.getTime() / 1000).toString();
+
+  // Use the current time as the 'latest' timestamp
+  const latest = Math.floor(Date.now() / 1000).toString();
 
   const messages = await fetchChannelMessages(channelId, oldest, latest);
   if (messages) {
