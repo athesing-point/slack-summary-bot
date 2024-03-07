@@ -1,3 +1,5 @@
+import express, { Request, Response } from "express";
+import bodyParser from "body-parser";
 import { WebClient } from "@slack/web-api"; // Import WebClient from Slack Web API for Slack operations
 import { OpenAI } from "openai"; // Import OpenAI for AI operations
 import * as dotenv from "dotenv"; // Import dotenv for environment variable management
@@ -10,6 +12,16 @@ const slackClient = new WebClient(process.env.SLACK_BOT_TOKEN);
 const openAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+// Create a new express application instance
+const app: express.Application = express();
+const port: number = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+
+// Middleware to parse URL-encoded bodies (as sent by HTML forms)
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// Middleware to parse JSON bodies
+app.use(bodyParser.json());
 
 // Function to fetch messages from a Slack channel within a given time range
 const fetchChannelMessages = async (channelId: string, oldest: string, latest: string) => {
@@ -104,15 +116,22 @@ const findChannelIdByName = async (channelName: string): Promise<string | undefi
   }
 };
 
-// Main function to process command input, fetch messages, summarize, and send DM
-const main = async (commandInput: string, userId: string) => {
+// Define the route for your Slack slash command
+app.post("/slack/summary", async (req: Request, res: Response) => {
+  // Extract the text and user_id from the request body
+  const { text, user_id } = req.body;
+
   // Parse command input for detail level, channel name, and days back to fetch messages
-  const [, detailLevel, channelName, daysInput] = commandInput.split(" ");
+  const [, detailLevel, channelName, daysInput] = text.split(" ");
 
   // Resolve channel name to channel ID
   const channelId = await findChannelIdByName(channelName);
   if (!channelId) {
     console.error(`Failed to find channel: ${channelName}`);
+    res.json({
+      response_type: "ephemeral",
+      text: `Failed to find channel: ${channelName}`,
+    });
     return;
   }
 
@@ -127,8 +146,20 @@ const main = async (commandInput: string, userId: string) => {
   const messages = await fetchChannelMessages(channelId, oldest, latest);
   if (messages) {
     const summary = await summarizeText(messages, detailLevel as "low" | "high");
-    await sendDM(userId, `Here's the summary:\n${summary}`);
+    await sendDM(user_id, `Here's the summary:\n${summary}`);
+    res.json({
+      response_type: "in_channel",
+      text: `Summary sent successfully to <@${user_id}>.`,
+    });
+  } else {
+    res.json({
+      response_type: "ephemeral",
+      text: "No messages found in the specified time range.",
+    });
   }
-};
+});
 
-main("/summary low #general 2d", "U1234567890").catch(console.error);
+// Start the server
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
