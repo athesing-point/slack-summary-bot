@@ -1,38 +1,45 @@
-import { WebClient } from "@slack/web-api";
-import { OpenAI } from "openai"; // Corrected import
-import * as dotenv from "dotenv";
+import { WebClient } from "@slack/web-api"; // Import WebClient from Slack Web API for Slack operations
+import { OpenAI } from "openai"; // Import OpenAI for AI operations
+import * as dotenv from "dotenv"; // Import dotenv for environment variable management
 
-dotenv.config();
+dotenv.config(); // Load environment variables from .env file
 
+// Initialize Slack WebClient with bot token from environment variables
 const slackClient = new WebClient(process.env.SLACK_BOT_TOKEN);
+// Initialize OpenAI client with API key from environment variables
 const openAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Function to fetch messages from a Slack channel within a given time range
 const fetchChannelMessages = async (channelId: string, oldest: string, latest: string) => {
   try {
+    // Fetch conversation history using Slack API
     const response = await slackClient.conversations.history({
       channel: channelId,
       oldest,
       latest,
-      limit: 1000,
+      limit: 1000, // Set message fetch limit
     });
+    // Map and join messages to a single string, return null if no messages
     return response.messages?.map((msg) => msg.text).join("\n");
   } catch (error) {
     console.error("Error fetching messages:", error);
   }
 };
 
-// Add a new parameter to summarizeText to accept detail level
+// Function to summarize text using OpenAI with a specified detail level
 const summarizeText = async (text: string, detailLevel: "low" | "high") => {
   try {
+    // Determine prompt based on detail level
     const prompt = detailLevel === "low" ? "Provide a brief summary:" : "Provide a detailed summary:";
+    // Create chat completion with OpenAI using the determined prompt and input text
     const response = await openAI.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-3.5-turbo", // Specify model
       messages: [
         {
           role: "system",
-          content: "You are a helpful assistant.",
+          content: "You are a helpful assistant whose purpose is to give people summaries of the messages or content you receive",
         },
         {
           role: "user",
@@ -40,17 +47,21 @@ const summarizeText = async (text: string, detailLevel: "low" | "high") => {
         },
       ],
     });
+    // Return the summary, trim whitespace, return empty string if no content
     return response.choices[0]?.message.content?.trim() ?? "";
   } catch (error) {
     console.error("Error summarizing text:", error);
   }
 };
 
+// Function to send a direct message to a user on Slack
 const sendDM = async (userId: string, text: string) => {
   try {
+    // Open a conversation with the specified user
     const openConvo = await slackClient.conversations.open({ users: userId });
-    const channelId = openConvo.channel?.id;
+    const channelId = openConvo.channel?.id; // Extract channel ID from the conversation
     if (channelId) {
+      // Post the message to the opened conversation channel
       await slackClient.chat.postMessage({
         channel: channelId,
         text,
@@ -63,26 +74,29 @@ const sendDM = async (userId: string, text: string) => {
   }
 };
 
-// Function to fetch all channels and return the one that matches the provided name
+// Function to find a channel ID by its name
 const findChannelIdByName = async (channelName: string): Promise<string | undefined> => {
   try {
-    // Remove the '#' if it's included in the channelName argument
+    // Normalize channel name by removing leading '#'
     const cleanChannelName = channelName.replace(/^#/, "");
-    let cursor; // For pagination
+    let cursor; // Initialize cursor for pagination
     do {
+      // Fetch list of channels with pagination support
       const response = await slackClient.conversations.list({
         exclude_archived: true,
-        types: "public_channel,private_channel", // Adjust based on your needs
+        types: "public_channel,private_channel", // Specify channel types to include
         cursor,
       });
 
+      // Find channel by name and return its ID
       const foundChannel = response.channels?.find((channel) => channel.name === cleanChannelName);
       if (foundChannel) {
         return foundChannel.id;
       }
 
+      // Update cursor for next page
       cursor = response.response_metadata?.next_cursor;
-    } while (cursor);
+    } while (cursor); // Continue while there are more pages
 
     console.error("Channel not found");
   } catch (error) {
@@ -90,26 +104,26 @@ const findChannelIdByName = async (channelName: string): Promise<string | undefi
   }
 };
 
-// Modify the main function to include the logic for resolving channelName to channelId
-const main = async (commandInput: string) => {
-  // Example command input: "/summary low #general 2d"
+// Main function to process command input, fetch messages, summarize, and send DM
+const main = async (commandInput: string, userId: string) => {
+  // Parse command input for detail level, channel name, and days back to fetch messages
   const [, detailLevel, channelName, daysInput] = commandInput.split(" ");
 
-  // Resolve channelName to channelId
+  // Resolve channel name to channel ID
   const channelId = await findChannelIdByName(channelName);
   if (!channelId) {
     console.error(`Failed to find channel: ${channelName}`);
     return;
   }
 
-  const userId = "U1234567890"; // Replace with the User ID to receive the summary
-
+  // Calculate time range for message fetching
   const days = parseInt(daysInput.replace(/[^\d]/g, ""), 10);
   const now = new Date();
   const oldestDate = new Date(now.setDate(now.getDate() - days));
   const oldest = Math.floor(oldestDate.getTime() / 1000).toString();
   const latest = Math.floor(Date.now() / 1000).toString();
 
+  // Fetch messages, summarize, and send DM with summary
   const messages = await fetchChannelMessages(channelId, oldest, latest);
   if (messages) {
     const summary = await summarizeText(messages, detailLevel as "low" | "high");
@@ -117,4 +131,4 @@ const main = async (commandInput: string) => {
   }
 };
 
-main("/summary low #general 2d").catch(console.error);
+main("/summary low #general 2d", "U1234567890").catch(console.error);
