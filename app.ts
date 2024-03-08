@@ -6,6 +6,7 @@ import * as dotenv from "dotenv"; // Import dotenv for environment variable mana
 import path from "path";
 import axios from "axios"; // Import axios for making HTTP requests
 import { filterMessages } from "./interface"; // Import filterMessages for message sanitization
+import { replaceUserIdsWithUsernames, loadUserMappings } from "./interface-username-map";
 
 dotenv.config(); // Load environment variables from .env file
 
@@ -29,6 +30,9 @@ app.use(bodyParser.json());
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, "public")));
 
+// Load user mappings from a JSON file
+const userMap = loadUserMappings(path.join(__dirname, "slack-users-clean.json"));
+
 // Function to fetch messages from a Slack channel within a given time range
 const fetchChannelMessages = async (channelId: string, oldest: string, latest: string) => {
   try {
@@ -48,35 +52,7 @@ const fetchChannelMessages = async (channelId: string, oldest: string, latest: s
 };
 
 // Function to summarize text using OpenAI with a specified detail level
-// const summarizeText = async (text: string, detailLevel: "low" | "high") => {
-//   try {
-//     console.log(`Summarizing text with detail level ${detailLevel}`);
-//     // Determine prompt based on detail level
-//     const prompt = detailLevel === "low" ? "Provide a brief summary:" : "Provide a detailed summary:";
-//     // Create chat completion with OpenAI using the determined prompt and input text
-//     const response = await openAI.chat.completions.create({
-//       model: "gpt-3.5-turbo", // Specify model
-//       messages: [
-//         {
-//           role: "system",
-//           content:
-//             "You are a helpful assistant who creates succinct summaries of Slack channel messages. I will provide the messages in json format, and you should write the summary in a markdown style. Each message will include a unix time stamp (ts) which you can use to organize your summary chronologically if it spans more than one week.",
-//         },
-//         {
-//           role: "user",
-//           content: `${prompt}\n\n${text}`,
-//         },
-//       ],
-//     });
-//     // Return the summary, trim whitespace, return empty string if no content
-//     return response.choices[0]?.message.content?.trim() ?? "";
-//   } catch (error) {
-//     console.error("Error summarizing text:", error);
-//   }
-// };
-
-// Function to summarize text using OpenAI with a specified detail level
-const summarizeText = async (text: string, detailLevel: "low" | "high") => {
+const summarizeText = async (text: string, detailLevel: "low" | "high"): Promise<string> => {
   try {
     // Determine prompt based on detail level
     const prompt =
@@ -103,6 +79,7 @@ const summarizeText = async (text: string, detailLevel: "low" | "high") => {
     return response.choices[0]?.message.content?.trim() ?? "";
   } catch (error) {
     console.error("Error summarizing text:", error);
+    return ""; // Return an empty string in case of an error
   }
 };
 
@@ -200,8 +177,9 @@ app.post("/slack/summary", async (req: Request, res: Response) => {
       const originalData = { messages: [{ messages: messages.split("\n").map((message) => ({ text: message })) }] };
       const sanitizedMessages = filterMessages(originalData);
       const summary = await summarizeText(sanitizedMessages.map((msg) => msg.text).join("\n"), detailLevel as "low" | "high");
-      console.log(`Generated summary:`, summary);
-      await sendDM(userId, `Here's the summary:\n${summary}`);
+      const summaryWithUsernames = replaceUserIdsWithUsernames(summary, userMap);
+      console.log(`Generated summary with usernames:`, summaryWithUsernames);
+      await sendDM(userId, `Here's the summary:\n${summaryWithUsernames}`);
       console.log(`Sent DM to user ${userId}`);
       if (responseUrl) {
         // Send a message to the response_url indicating the summary has been sent
