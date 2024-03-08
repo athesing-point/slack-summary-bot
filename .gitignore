@@ -3,3 +3,4 @@
 node_modules/
 app.js
 interface.js
+interface-username-map.js
