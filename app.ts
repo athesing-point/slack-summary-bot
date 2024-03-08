@@ -30,6 +30,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // Function to fetch messages from a Slack channel within a given time range
 const fetchChannelMessages = async (channelId: string, oldest: string, latest: string) => {
   try {
+    console.log(`Fetching messages for channel ${channelId} from ${oldest} to ${latest}`);
     // Fetch conversation history using Slack API
     const response = await slackClient.conversations.history({
       channel: channelId,
@@ -47,6 +48,7 @@ const fetchChannelMessages = async (channelId: string, oldest: string, latest: s
 // Function to summarize text using OpenAI with a specified detail level
 const summarizeText = async (text: string, detailLevel: "low" | "high") => {
   try {
+    console.log(`Summarizing text with detail level ${detailLevel}`);
     // Determine prompt based on detail level
     const prompt = detailLevel === "low" ? "Provide a brief summary:" : "Provide a detailed summary:";
     // Create chat completion with OpenAI using the determined prompt and input text
@@ -73,6 +75,7 @@ const summarizeText = async (text: string, detailLevel: "low" | "high") => {
 // Function to send a direct message to a user on Slack
 const sendDM = async (userId: string, text: string) => {
   try {
+    console.log(`Sending DM to user ${userId}`);
     // Open a conversation with the specified user
     const openConvo = await slackClient.conversations.open({ users: userId });
     const channelId = openConvo.channel?.id; // Extract channel ID from the conversation
@@ -91,45 +94,51 @@ const sendDM = async (userId: string, text: string) => {
 };
 
 // Function to find a channel ID by its name
+// Hardcoded channel IDs mapping with an index signature
+const channelIds: { [key: string]: string } = {
+  "marketing-design-team": "C06KSEU6YAC",
+  "website-pdc": "C03U4Q0T23W",
+  "seo-and-content": "C045Q1W6AH2",
+};
+
+// Function to find a channel ID by its name
 const findChannelIdByName = async (channelName: string): Promise<string | undefined> => {
-  try {
-    // Normalize channel name by removing leading '#'
-    const cleanChannelName = channelName.replace(/^#/, "");
-    let cursor; // Initialize cursor for pagination
-    do {
-      // Fetch list of channels with pagination support
-      const response = await slackClient.conversations.list({
-        exclude_archived: true,
-        types: "public_channel,private_channel", // Specify channel types to include
-        cursor,
-      });
+  console.log(`Finding channel ID for "${channelName}"`);
+  // Normalize channel name by removing leading '#'
+  const cleanChannelName = channelName.replace(/^#/, "");
 
-      // Find channel by name and return its ID
-      const foundChannel = response.channels?.find((channel) => channel.name === cleanChannelName);
-      if (foundChannel) {
-        return foundChannel.id;
-      }
-
-      // Update cursor for next page
-      cursor = response.response_metadata?.next_cursor;
-    } while (cursor); // Continue while there are more pages
-
-    console.error("Channel not found");
-  } catch (error) {
-    console.error("Error fetching channels:", error);
-  }
+  // Return the channel ID from the hardcoded mapping
+  return channelIds[cleanChannelName];
 };
 
 // Define the route for your Slack slash command
 app.post("/slack/summary", async (req: Request, res: Response) => {
-  // Extract the text and user_id from the request body
-  const { text, user_id } = req.body;
+  console.log("Received Slack command:", req.body);
+  // Assuming the user ID is part of the request body, typically under `user_id` for Slack commands
+  const userId = req.body.user_id;
 
-  // Parse command input for detail level, channel name, and days back to fetch messages
-  const [, detailLevel, channelName, daysInput] = text.split(" ");
+  if (!userId) {
+    res.json({
+      response_type: "ephemeral",
+      text: "Could not identify the user ID.",
+    });
+    return;
+  }
+
+  // Trim the text and split by one or more spaces
+  const parts = req.body.text.trim().split(/\s+/);
+  if (parts.length < 3) {
+    res.json({
+      response_type: "ephemeral",
+      text: "Please provide the command in the format: /summary [detailLevel] [channelName] [days]",
+    });
+    return;
+  }
+  const [detailLevel, channelName, daysInput] = parts;
 
   // Resolve channel name to channel ID
   const channelId = await findChannelIdByName(channelName);
+  console.log(`Channel ID for "${channelName}":`, channelId);
   if (!channelId) {
     console.error(`Failed to find channel: ${channelName}`);
     res.json({
@@ -148,12 +157,15 @@ app.post("/slack/summary", async (req: Request, res: Response) => {
 
   // Fetch messages, summarize, and send DM with summary
   const messages = await fetchChannelMessages(channelId, oldest, latest);
+  console.log(`Fetched messages for channel ${channelId}:`, messages);
   if (messages) {
     const summary = await summarizeText(messages, detailLevel as "low" | "high");
-    await sendDM(user_id, `Here's the summary:\n${summary}`);
+    console.log(`Generated summary:`, summary);
+    await sendDM(userId, `Here's the summary:\n${summary}`);
+    console.log(`Sent DM to user ${userId}`);
     res.json({
       response_type: "in_channel",
-      text: `Summary sent successfully to <@${user_id}>.`,
+      text: `Summary sent successfully to <@${userId}>.`,
     });
   } else {
     res.json({
