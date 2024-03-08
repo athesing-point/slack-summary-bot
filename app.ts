@@ -110,13 +110,14 @@ const channelIds: { [key: string]: string } = {
   "marketing-design-team": "C06KSEU6YAC",
   "website-pdc": "C03U4Q0T23W",
   "seo-and-content": "C045Q1W6AH2",
+  "hackathon-lazy-slack-club": "C06NEARE0M9",
 };
 
 // Function to find a channel ID by its name
 const findChannelIdByName = async (channelName: string): Promise<string | undefined> => {
   console.log(`Finding channel ID for "${channelName}"`);
-  // Normalize channel name by removing leading '#'
-  const cleanChannelName = channelName.replace(/^#/, "");
+  // Normalize channel name by removing leading '#' if present
+  const cleanChannelName = channelName.startsWith("#") ? channelName.substring(1) : channelName;
 
   // Return the channel ID from the hardcoded mapping
   return channelIds[cleanChannelName];
@@ -176,10 +177,12 @@ app.post("/slack/summary", async (req: Request, res: Response) => {
     if (messages) {
       const originalData = { messages: [{ messages: messages.split("\n").map((message) => ({ text: message })) }] };
       const sanitizedMessages = filterMessages(originalData);
-      const summary = await summarizeText(sanitizedMessages.map((msg) => msg.text).join("\n"), detailLevel as "low" | "high");
-      const summaryWithUsernames = replaceUserIdsWithUsernames(summary, userMap);
-      console.log(`Generated summary with usernames:`, summaryWithUsernames);
-      await sendDM(userId, `Here's the summary:\n${summaryWithUsernames}`);
+      // Apply user map to replace user IDs with usernames before summarization
+      const messagesWithUsernames = replaceUserIdsWithUsernames(sanitizedMessages.map((msg) => msg.text).join("\n"), userMap);
+      console.log("Before summarization, messages with usernames:", messagesWithUsernames);
+      const summary = await summarizeText(messagesWithUsernames, detailLevel as "low" | "high");
+      console.log(`Generated summary:`, summary);
+      await sendDM(userId, `Here's the summary:\n${summary}`);
       console.log(`Sent DM to user ${userId}`);
       if (responseUrl) {
         // Send a message to the response_url indicating the summary has been sent

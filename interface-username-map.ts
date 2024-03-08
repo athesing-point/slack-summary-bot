@@ -18,6 +18,7 @@ export function loadUserMappings(filePath: string): Map<string, string> {
   data.members.forEach((user) => {
     userMap.set(user.id, user.display_name);
   });
+  console.log(userMap); // Added for debugging
   return userMap;
 }
 
