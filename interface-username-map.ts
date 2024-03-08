@@ -1,42 +1,36 @@
 //WIP //WIP //WIP //WIP
+import { readFileSync } from 'fs';
 
-interface User {
+interface SlackUser {
     id: string;
     name: string;
 }
-interface UserMapping {
-    members: User[];
+
+interface UserMappings {
+    members: SlackUser[];
 }
 
-import { readFileSync } from 'fs';
-
-// Reads the JSON file and returns a mapping from user IDs to usernames
-function readUserMappings(filePath: string): Map<string, string> {
+// Load and parse the JSON, then convert to a Map for easy lookup
+function loadUserMappings(filePath: string): Map<string, string> {
     const rawData = readFileSync(filePath, 'utf8');
-    const data: UserMapping = JSON.parse(rawData);
+    const data: UserMappings = JSON.parse(rawData);
     const userMap = new Map<string, string>();
-
-    for (const user of data.members) {
+    data.members.forEach(user => {
         userMap.set(user.id, user.name);
-    }
+    });
     return userMap;
 }
 
-// Replaces all occurrences of user IDs in the summary with their corresponding usernames
+// Replace Slack user IDs in the summary with their corresponding names
 function replaceUserIdsWithUsernames(summary: string, userMap: Map<string, string>): string {
-    return summary.replace(/<@(U[A-Z0-9]+)>/g, (match, userId) => {
-        const username = userMap.get(userId);
-        return username ? `@${username}` : match;
+    return summary.replace(/<@([A-Z0-9]+)>/g, (match, userId) => {
+        return userMap.has(userId) ? `@${userMap.get(userId)}` : match;
     });
 }
 
 // Example usage
-try {
-    const userMap = readUserMappings('slack-users-clean.json');
-    const summary = 'This is a summary mentioning <@USLACKBOT> and <@U02ASPNS1>.';
+const userMap = loadUserMappings('path/to/slack-users-clean.json');
+const summary = 'This is a message from <@USLACKBOT> and <@U02ASPNS1>.';
 
-    const updatedSummary = replaceUserIdsWithUsernames(summary, userMap);
-    console.log(updatedSummary);
-} catch (error) {
-    console.error("Failed to process summary:", error);
-}
+const updatedSummary = replaceUserIdsWithUsernames(summary, userMap);
+console.log(updatedSummary);
