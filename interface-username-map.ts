@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 
 interface SlackUser {
     id: string;
-    name: string;
+    display_name: string;
 }
 
 interface UserMappings {
@@ -16,7 +16,7 @@ function loadUserMappings(filePath: string): Map<string, string> {
     const data: UserMappings = JSON.parse(rawData);
     const userMap = new Map<string, string>();
     data.members.forEach(user => {
-        userMap.set(user.id, user.name);
+        userMap.set(user.id, user.display_name);
     });
     return userMap;
 }
