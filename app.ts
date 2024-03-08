@@ -44,8 +44,19 @@ const fetchChannelMessages = async (channelId: string, oldest: string, latest: s
       latest,
       limit: 1000, // Set message fetch limit
     });
-    // Map and join messages to a single string, return null if no messages
-    return response.messages?.map((msg) => msg.text).join("\n");
+
+    // Assuming response.messages is an array of message objects
+    const detailedMessages = response.messages
+      ?.map((msg) => {
+        // Extract the user ID from the message sender
+        const userId = msg.user; // Adjust based on actual structure
+        // Ensure userId is defined before attempting to use it as a key
+        const username = userId && userMap.has(userId) ? userMap.get(userId) || "Unknown User" : "Unknown User";
+        // Prepend the username to the message text
+        return `${username}: ${msg.text}`;
+      })
+      .join("\n");
+    return detailedMessages;
   } catch (error) {
     console.error("Error fetching messages:", error);
   }
@@ -91,16 +102,18 @@ const sendDM = async (userId: string, text: string) => {
     const openConvo = await slackClient.conversations.open({ users: userId });
     const channelId = openConvo.channel?.id; // Extract channel ID from the conversation
     if (channelId) {
+      // Replace ### headings with bolded text
+      const formattedText = text.replace(/###\s*(.*)/g, "*$1*");
       // Post the message to the opened conversation channel
       await slackClient.chat.postMessage({
         channel: channelId,
-        text: text, // Use the 'text' parameter here to resolve the error
+        text: formattedText, // Use the formatted text here
         blocks: [
           {
             type: "section",
             text: {
               type: "mrkdwn",
-              text: text, // Or use the 'text' parameter here if it's meant for the markdown section
+              text: formattedText, // Use the formatted text here
             },
           },
           // Add more blocks as needed for different sections of the summary
@@ -191,8 +204,10 @@ app.post("/slack/summary", async (req: Request, res: Response) => {
       const messagesWithUsernames = replaceUserIdsWithUsernames(sanitizedMessages.map((msg) => msg.text).join("\n"), userMap);
       console.log("Before summarization, messages with usernames:", messagesWithUsernames);
       const summary = await summarizeText(messagesWithUsernames, detailLevel as "low" | "high");
-      console.log(`Generated summary:`, summary);
-      await sendDM(userId, `Here's the summary for #${channelName} over the last ${days} day(s):\n${summary}`);
+      // Assuming `summary` is your message summary or concatenated messages
+      const updatedSummary = replaceUserIdsWithUsernames(summary, userMap);
+      console.log(`Generated summary:`, updatedSummary);
+      await sendDM(userId, `Here's the summary for #${channelName} over the last ${days} day(s):\n\n${updatedSummary}`);
       console.log(`Sent DM to user ${userId}`);
       if (responseUrl) {
         // Send a message to the response_url indicating the summary has been sent
