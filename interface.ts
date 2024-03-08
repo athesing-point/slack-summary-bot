@@ -1,34 +1,32 @@
-interface File {
-  thumb_720?: string; // Optional because not all files may have this property
+interface slackFile {
+  thumb_720?: string;
 }
-
 interface Message {
-  user?: string; // Optional because not all messages may have a user (e.g., system messages)
+  user?: string;
   text: string;
   ts: string;
-  files?: File[]; // Optional because not all messages have files
+  files?: slackFile[];
 }
 function filterMessages(originalData: any): Message[] {
-  // Access the nested messages array
   const nestedMessages = originalData.messages[0].messages;
-
-  return nestedMessages.map((msg: any) => {
-    // Prepare the files array if it exists, focusing on the thumb_720 property
-    const files =
-      msg.files
-        ?.filter((file: any) => file.thumb_720)
-        .map((file: any) => ({
-          thumb_720: file.thumb_720,
-        })) || [];
-
+  return nestedMessages.map((msg: any): Message => {
+    // Directly mapping the files if they exist and contain the thumb_720 property
+    const files = msg.files?.reduce((acc: slackFile[], file: any) => {
+      if (file.thumb_720) {
+        acc.push({ thumb_720: file.thumb_720 });
+      }
+      return acc;
+    }, []);
     return {
-      user: msg.user ?? undefined,
-      text: msg.text ?? "No text available",
-      ts: msg.ts ?? "No timestamp",
-      files: files.length > 0 ? files : undefined,
+      user: msg.user,
+      text: msg.text,
+      ts: msg.ts,
+      // Assign files only if the array is not empty, otherwise undefined
+      files: files && files.length > 0 ? files : undefined,
     };
   });
 }
+
 const originalData = {
   messages: [
     {
@@ -1103,4 +1101,4 @@ const originalData = {
 
 // Usage example with your provided originalData
 const filteredMessages = filterMessages(originalData);
-console.log(filteredMessages);
+console.log(JSON.stringify(filteredMessages, null, 2));
