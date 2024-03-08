@@ -29,7 +29,7 @@ function replaceUserIdsWithUsernames(summary: string, userMap: Map<string, strin
 }
 
 // Example usage
-const userMap = loadUserMappings('path/to/slack-users-clean.json');
+const userMap = loadUserMappings('slack-users-clean.json');
 const summary = 'This is a message from <@USLACKBOT> and <@U02ASPNS1>.';
 
 const updatedSummary = replaceUserIdsWithUsernames(summary, userMap);
