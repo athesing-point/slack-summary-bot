@@ -42,6 +42,7 @@ const openai_1 = require("openai"); // Import OpenAI for AI operations
 const dotenv = __importStar(require("dotenv")); // Import dotenv for environment variable management
 const path_1 = __importDefault(require("path"));
 const axios_1 = __importDefault(require("axios")); // Import axios for making HTTP requests
+const interface_1 = require("./interface"); // Import filterMessages for message sanitization
 dotenv.config(); // Load environment variables from .env file
 // Initialize Slack WebClient with bot token from environment variables
 const slackClient = new web_api_1.WebClient(process.env.SLACK_BOT_TOKEN);
@@ -188,7 +189,9 @@ app.post("/slack/summary", (req, res) => __awaiter(void 0, void 0, void 0, funct
         const messages = yield fetchChannelMessages(channelId, oldest, latest);
         console.log(`Fetched messages for channel ${channelId}:`, messages);
         if (messages) {
-            const summary = yield summarizeText(messages, detailLevel);
+            const originalData = { messages: [{ messages: messages.split("\n").map((message) => ({ text: message })) }] };
+            const sanitizedMessages = (0, interface_1.filterMessages)(originalData);
+            const summary = yield summarizeText(sanitizedMessages.map((msg) => msg.text).join("\n"), detailLevel);
             console.log(`Generated summary:`, summary);
             yield sendDM(userId, `Here's the summary:\n${summary}`);
             console.log(`Sent DM to user ${userId}`);

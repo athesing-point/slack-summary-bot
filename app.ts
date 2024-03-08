@@ -5,6 +5,7 @@ import { OpenAI } from "openai"; // Import OpenAI for AI operations
 import * as dotenv from "dotenv"; // Import dotenv for environment variable management
 import path from "path";
 import axios from "axios"; // Import axios for making HTTP requests
+import { filterMessages } from "./interface"; // Import filterMessages for message sanitization
 
 dotenv.config(); // Load environment variables from .env file
 
@@ -164,7 +165,9 @@ app.post("/slack/summary", async (req: Request, res: Response) => {
     const messages = await fetchChannelMessages(channelId, oldest, latest);
     console.log(`Fetched messages for channel ${channelId}:`, messages);
     if (messages) {
-      const summary = await summarizeText(messages, detailLevel as "low" | "high");
+      const originalData = { messages: [{ messages: messages.split("\n").map((message) => ({ text: message })) }] };
+      const sanitizedMessages = filterMessages(originalData);
+      const summary = await summarizeText(sanitizedMessages.map((msg) => msg.text).join("\n"), detailLevel as "low" | "high");
       console.log(`Generated summary:`, summary);
       await sendDM(userId, `Here's the summary:\n${summary}`);
       console.log(`Sent DM to user ${userId}`);
