@@ -31,7 +31,10 @@ app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 // Load user mappings from a JSON file
-const userMap = loadUserMappings(path.join(__dirname, "slack-users-clean.json"));
+interface User {
+  display_name: string;
+}
+const userMap: Map<string, User> = new Map(Array.from(loadUserMappings(path.join(__dirname, "slack-users-clean.json"))).map(([key, value]) => [key, { display_name: value }]));
 
 // Function to fetch messages from a Slack channel within a given time range
 const fetchChannelMessages = async (channelId: string, oldest: string, latest: string) => {
@@ -50,11 +53,11 @@ const fetchChannelMessages = async (channelId: string, oldest: string, latest: s
       ?.map((msg) => {
         // Extract the user ID from the message sender
         const userId = msg.user; // Adjust based on actual structure
-        let username = "Unknown User"; // Default username
+        let username = "Summary Ship / Unknown"; // Default username
         if (userId) {
-          const usernameLookup = userMap.get(userId); // Attempt to retrieve the username
-          if (usernameLookup) {
-            username = usernameLookup; // Use the username if available
+          const userObject = userMap.get(userId); // Attempt to retrieve the user object
+          if (userObject) {
+            username = userObject.display_name; // Use the display name if available
           }
         }
         // Prepend the username to the message text
@@ -83,7 +86,7 @@ const summarizeText = async (text: string, detailLevel: "low" | "high"): Promise
         {
           role: "system",
           content:
-            "You are a helpful assistant who creates succinct summaries of Slack channel messages. I will provide the messages in json format, and you should write the summary in a markdown style. Each message will include a unix time stamp (ts) which you can use to organize your summary chronologically if it spans more than one week.",
+            "You are a helpful assistant who creates succinct summaries of Slack channel messages. I will provide the messages in json format, and you should write the summary in Slack's unique markdown style. Each message will include a unix time stamp (ts) which you can use to organize your summary chronologically if it spans more than one week.",
         },
         {
           role: "user",
@@ -109,16 +112,18 @@ const sendDM = async (userId: string, text: string) => {
     if (channelId) {
       // Replace ### headings with bolded text
       const formattedText = text.replace(/###\s*(.*)/g, "*$1*");
+      // Replace ** around a word with single * (Markdown bold to italic conversion)
+      const markdownAdjustedText = formattedText.replace(/\*\*(\S(.*?\S)?)\*\*/g, "*$1*");
       // Post the message to the opened conversation channel
       await slackClient.chat.postMessage({
         channel: channelId,
-        text: formattedText, // Use the formatted text here
+        text: markdownAdjustedText, // Use the markdown adjusted text here
         blocks: [
           {
             type: "section",
             text: {
               type: "mrkdwn",
-              text: formattedText, // Use the formatted text here
+              text: markdownAdjustedText, // Use the markdown adjusted text here
             },
           },
           // Add more blocks as needed for different sections of the summary
@@ -205,14 +210,20 @@ app.post("/slack/summary", async (req: Request, res: Response) => {
     if (messages) {
       const originalData = { messages: [{ messages: messages.split("\n").map((message) => ({ text: message })) }] };
       const sanitizedMessages = filterMessages(originalData);
+      // Convert userMap to the correct type before passing it to replaceUserIdsWithUsernames
+      const userMapForReplacement = new Map<string, string>(Array.from(userMap.entries()).map(([id, user]) => [id, user.display_name]));
       // Apply user map to replace user IDs with usernames before summarization
-      const messagesWithUsernames = replaceUserIdsWithUsernames(sanitizedMessages.map((msg) => msg.text).join("\n"), userMap);
+      const messagesWithUsernames = replaceUserIdsWithUsernames(sanitizedMessages.map((msg) => msg.text).join("\n"), userMapForReplacement);
       console.log("Before summarization, messages with usernames:", messagesWithUsernames);
       const summary = await summarizeText(messagesWithUsernames, detailLevel as "low" | "high");
       // Assuming `summary` is your message summary or concatenated messages
-      const updatedSummary = replaceUserIdsWithUsernames(summary, userMap);
+      const userMapForSummary = new Map<string, string>(Array.from(userMap.entries()).map(([id, user]) => [id, user.display_name]));
+      const updatedSummary = replaceUserIdsWithUsernames(summary, userMapForSummary);
       console.log(`Generated summary:`, updatedSummary);
-      await sendDM(userId, `Here's the summary for #${channelName} over the last ${days} day(s):\n\n${updatedSummary}`);
+      // Right before calling sendDM, ensure the summary header is constructed correctly
+      const summaryHeader = `Here's the summary for #${channelName} over the last ${days} day(s):\n\n`;
+      const finalSummary = summaryHeader + updatedSummary; // Ensure this concatenation happens once
+      await sendDM(userId, finalSummary);
       console.log(`Sent DM to user ${userId}`);
       if (responseUrl) {
         // Send a message to the response_url indicating the summary has been sent
