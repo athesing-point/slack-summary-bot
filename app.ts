@@ -145,27 +145,39 @@ const findChannelIdByName = async (channelName: string): Promise<string | undefi
   return channelIds[cleanChannelName];
 };
 
-// Define the route for your Slack slash command
-app.post("/slack/summary", async (req: Request, res: Response) => {
-  console.log("Received Slack command:", req.body);
-  // Extract the response_url from the request body
-  const responseUrl = req.body.response_url;
-
-  // Immediately acknowledge the Slack command
-  res.status(200).send("Processing your request. Please wait...");
-
-  // Then, process the request asynchronously
-  (async () => {
-    // Assuming the user ID is part of the request body, typically under `user_id` for Slack commands
+///// Revised message composer with whitelist
+// Hardcoded user ID whitelist
+const userIdWhitelist = new Set([
+    "U01HFBY3XGX", "U042J4T4B", "U0413GXHSHW", "U02PC6Z1S", "U02AULEAG",
+    "U052D6423P0", "U0ES3F3U3", "U04JBJG1WNS", "U57MPQ8HY", "U04Q35M65KN",
+    "U02EG90CQU9", "U04UB4ZBKBQ", "U03BJ5BDABY"
+  ]);
+  
+  app.post("/slack/summary", async (req: Request, res: Response) => {
+    console.log("Received Slack command:", req.body);
     const userId = req.body.user_id;
-
+  
     if (!userId) {
-      res.json({
+      return res.json({
         response_type: "ephemeral",
         text: "Could not identify the user ID.",
       });
-      return;
     }
+  
+    // Check if the user ID is in the whitelist
+    if (!userIdWhitelist.has(userId)) {
+      // If not, respond with an error message and stop further processing
+      return res.json({
+        response_type: "ephemeral",
+        text: "Sorry! The scope of this app was heavily negotiated, and we were not allowed to give you access. :sweat:"
+      });
+    }
+  
+    // Immediately acknowledge the Slack command if the user is whitelisted
+    res.status(200).send("Processing your request. Please wait...");
+  
+    // Proceed with further processing 
+    // end of user id whitelist match
 
     // Trim the text and split by one or more spaces
     const parts = req.body.text.trim().split(/\s+/);
