@@ -48,14 +48,17 @@ const fetchChannelMessages = async (channelId: string, oldest: string, latest: s
 const summarizeText = async (text: string, detailLevel: "low" | "high") => {
   try {
     // Determine prompt based on detail level
-    const prompt = detailLevel === "low" ? "Provide a brief summary:" : "Provide a detailed summary:";
+    const prompt = detailLevel === "low" 
+      ? "Keep this summary concise and to the point:" 
+      : "Analyze the content to identify the main themes and key details. Create a summary that encapsulates the essence of the message, highlighting the primary points and conclusions. Utilize bullet points or lists to organize the information clearly. Pay special attention to maintaining the tone and intent of the original message:";
+
     // Create chat completion with OpenAI using the determined prompt and input text
     const response = await openAI.chat.completions.create({
       model: "gpt-3.5-turbo", // Specify model
       messages: [
         {
           role: "system",
-          content: "You are a helpful assistant whose purpose is to give people summaries of the messages you recieve.",
+          content: "You are a helpful assistant whose purpose is to create succint summaries of Slack channel activity. I will provide the raw data in a json format, and you should write the summary in a markdown style.",
         },
         {
           role: "user",
