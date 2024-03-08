@@ -94,7 +94,17 @@ const sendDM = async (userId: string, text: string) => {
       // Post the message to the opened conversation channel
       await slackClient.chat.postMessage({
         channel: channelId,
-        text,
+        text: text, // Use the 'text' parameter here to resolve the error
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: text, // Or use the 'text' parameter here if it's meant for the markdown section
+            },
+          },
+          // Add more blocks as needed for different sections of the summary
+        ],
       });
     } else {
       console.error("Failed to open a conversation");
@@ -182,7 +192,7 @@ app.post("/slack/summary", async (req: Request, res: Response) => {
       console.log("Before summarization, messages with usernames:", messagesWithUsernames);
       const summary = await summarizeText(messagesWithUsernames, detailLevel as "low" | "high");
       console.log(`Generated summary:`, summary);
-      await sendDM(userId, `Here's the summary:\n${summary}`);
+      await sendDM(userId, `Here's the summary for #${channelName} over the last ${days} day(s):\n${summary}`);
       console.log(`Sent DM to user ${userId}`);
       if (responseUrl) {
         // Send a message to the response_url indicating the summary has been sent
