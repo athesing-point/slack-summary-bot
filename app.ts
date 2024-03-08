@@ -50,7 +50,7 @@ const summarizeText = async (text: string, detailLevel: "low" | "high") => {
     // Determine prompt based on detail level
     const prompt = detailLevel === "low" 
       ? "Keep this summary concise and to the point:" 
-      : "Analyze the content to identify the main themes and key details. Create a summary that encapsulates the essence of the message, highlighting the primary points and conclusions. Utilize bullet points or lists to organize the information clearly. Pay special attention to maintaining the tone and intent of the original message:";
+      : "Create a summary that encapsulates the essence of the message, highlighting the primary points and conclusions. Utilize bullet points or lists to organize the information clearly. Pay special attention to maintaining the tone and intent of the original message:";
 
     // Create chat completion with OpenAI using the determined prompt and input text
     const response = await openAI.chat.completions.create({
@@ -58,7 +58,7 @@ const summarizeText = async (text: string, detailLevel: "low" | "high") => {
       messages: [
         {
           role: "system",
-          content: "You are a helpful assistant whose purpose is to create succint summaries of Slack channel activity. I will provide the raw data in a json format, and you should write the summary in a markdown style.",
+          content: "You are a helpful assistant whose purpose is to create succint summaries of Slack channel activity. I will provide the raw data in json format, and you should write the summary in a markdown style. The raw data will include unix time stamps whch you can use to organize reponses if they span over one week.",
         },
         {
           role: "user",
