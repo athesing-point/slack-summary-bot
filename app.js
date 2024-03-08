@@ -41,6 +41,7 @@ const web_api_1 = require("@slack/web-api"); // Import WebClient from Slack Web 
 const openai_1 = require("openai"); // Import OpenAI for AI operations
 const dotenv = __importStar(require("dotenv")); // Import dotenv for environment variable management
 const path_1 = __importDefault(require("path"));
+const axios_1 = __importDefault(require("axios")); // Import axios for making HTTP requests
 dotenv.config(); // Load environment variables from .env file
 // Initialize Slack WebClient with bot token from environment variables
 const slackClient = new web_api_1.WebClient(process.env.SLACK_BOT_TOKEN);
@@ -145,63 +146,63 @@ const findChannelIdByName = (channelName) => __awaiter(void 0, void 0, void 0, f
 // Define the route for your Slack slash command
 app.post("/slack/summary", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     console.log("Received Slack command:", req.body);
-    // Assuming the user ID is part of the request body, typically under `user_id` for Slack commands
-    const userId = req.body.user_id;
-    if (!userId) {
-        res.json({
-            response_type: "ephemeral",
-            text: "Could not identify the user ID.",
-        });
-        return;
-    }
-    // Trim the text and split by one or more spaces
-    const parts = req.body.text.trim().split(/\s+/);
-    if (parts.length < 3) {
-        res.json({
-            response_type: "ephemeral",
-            text: "Please provide the command in the format: /summary [detailLevel] [channelName] [days]",
-        });
-        return;
-    }
-    const [detailLevel, channelName, daysInput] = parts;
-    // Resolve channel name to channel ID
-    const channelId = yield findChannelIdByName(channelName);
-    console.log(`Channel ID for "${channelName}":`, channelId);
-    if (!channelId) {
-        console.error(`Failed to find channel: ${channelName}`);
-        res.json({
-            response_type: "ephemeral",
-            text: `Failed to find channel: ${channelName}`,
-        });
-        return;
-    }
-    // Calculate time range for message fetching
-    const days = parseInt(daysInput.replace(/[^\d]/g, ""), 10);
-    const now = new Date();
-    const oldestDate = new Date(now.setDate(now.getDate() - days));
-    const oldest = Math.floor(oldestDate.getTime() / 1000).toString();
-    const latest = Math.floor(Date.now() / 1000).toString();
-    // Fetch messages, summarize, and send DM with summary
-    const messages = yield fetchChannelMessages(channelId, oldest, latest);
-    console.log(`Fetched messages for channel ${channelId}:`, messages);
-    if (messages) {
-        const summary = yield summarizeText(messages, detailLevel);
-        console.log(`Generated summary:`, summary);
-        yield sendDM(userId, `Here's the summary:\n${summary}`);
-        console.log(`Sent DM to user ${userId}`);
-        res.json({
-            response_type: "in_channel",
-            text: `Summary sent successfully to <@${userId}>.`,
-        });
-    }
-    else {
-        res.json({
-            response_type: "ephemeral",
-            text: "No messages found in the specified time range.",
-        });
-    }
+    // Extract the response_url from the request body
+    const responseUrl = req.body.response_url;
+    // Immediately acknowledge the Slack command
+    res.status(200).send("Processing your request. Please wait...");
+    // Then, process the request asynchronously
+    (() => __awaiter(void 0, void 0, void 0, function* () {
+        // Assuming the user ID is part of the request body, typically under `user_id` for Slack commands
+        const userId = req.body.user_id;
+        if (!userId) {
+            res.json({
+                response_type: "ephemeral",
+                text: "Could not identify the user ID.",
+            });
+            return;
+        }
+        // Trim the text and split by one or more spaces
+        const parts = req.body.text.trim().split(/\s+/);
+        if (parts.length < 3) {
+            res.json({
+                response_type: "ephemeral",
+                text: "Please provide the command in the format: /summary [detailLevel] [channelName] [days]",
+            });
+            return;
+        }
+        const [detailLevel, channelName, daysInput] = parts;
+        // Resolve channel name to channel ID
+        const channelId = yield findChannelIdByName(channelName);
+        console.log(`Channel ID for "${channelName}":`, channelId);
+        if (!channelId) {
+            console.error(`Failed to find channel: ${channelName}`);
+            return;
+        }
+        // Calculate time range for message fetching
+        const days = parseInt(daysInput.replace(/[^\d]/g, ""), 10);
+        const now = new Date();
+        const oldestDate = new Date(now.setDate(now.getDate() - days));
+        const oldest = Math.floor(oldestDate.getTime() / 1000).toString();
+        const latest = Math.floor(Date.now() / 1000).toString();
+        // Fetch messages, summarize, and send DM with summary
+        const messages = yield fetchChannelMessages(channelId, oldest, latest);
+        console.log(`Fetched messages for channel ${channelId}:`, messages);
+        if (messages) {
+            const summary = yield summarizeText(messages, detailLevel);
+            console.log(`Generated summary:`, summary);
+            yield sendDM(userId, `Here's the summary:\n${summary}`);
+            console.log(`Sent DM to user ${userId}`);
+            if (responseUrl) {
+                // Send a message to the response_url indicating the summary has been sent
+                yield axios_1.default.post(responseUrl, {
+                    replace_original: "true",
+                    text: `Summary sent successfully to <@${userId}>.`,
+                });
+            }
+        }
+    }))().catch(console.error);
 }));
 // Start the server
 app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
+    console.log(`Server is running on port http://127.0.0.1:${port}`);
 });

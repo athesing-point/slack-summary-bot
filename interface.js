@@ -1,12 +1,13 @@
+"use strict";
 function filterMessages(originalData) {
     // Access the nested messages array
-    var nestedMessages = originalData.messages[0].messages;
-    return nestedMessages.map(function (msg) {
+    const nestedMessages = originalData.messages[0].messages;
+    return nestedMessages.map((msg) => {
         var _a, _b, _c, _d;
         // Prepare the files array if it exists, focusing on the thumb_720 property
-        var files = ((_a = msg.files) === null || _a === void 0 ? void 0 : _a.filter(function (file) { return file.thumb_720; }).map(function (file) { return ({
+        const files = ((_a = msg.files) === null || _a === void 0 ? void 0 : _a.filter((file) => file.thumb_720).map((file) => ({
             thumb_720: file.thumb_720,
-        }); })) || [];
+        }))) || [];
         return {
             user: (_b = msg.user) !== null && _b !== void 0 ? _b : undefined,
             text: (_c = msg.text) !== null && _c !== void 0 ? _c : "No text available",
@@ -15,7 +16,7 @@ function filterMessages(originalData) {
         };
     });
 }
-var originalData = {
+const originalData = {
     messages: [
         {
             ok: true,
@@ -1087,5 +1088,5 @@ var originalData = {
     ],
 };
 // Usage example with your provided originalData
-var filteredMessages = filterMessages(originalData);
+const filteredMessages = filterMessages(originalData);
 console.log(filteredMessages);
