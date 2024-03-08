@@ -55,6 +55,8 @@ const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 app.use(body_parser_1.default.urlencoded({ extended: true }));
 // Middleware to parse JSON bodies
 app.use(body_parser_1.default.json());
+// Serve static files from the 'public' directory
+app.use(express_1.default.static(path_1.default.join(__dirname, "public")));
 // Function to fetch messages from a Slack channel within a given time range
 const fetchChannelMessages = (channelId, oldest, latest) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
@@ -124,38 +126,33 @@ const sendDM = (userId, text) => __awaiter(void 0, void 0, void 0, function* () 
 });
 // Function to find a channel ID by its name
 const findChannelIdByName = (channelName) => __awaiter(void 0, void 0, void 0, function* () {
-    var _f, _g;
-    try {
-        // Normalize channel name by removing leading '#'
-        const cleanChannelName = channelName.replace(/^#/, "");
-        let cursor; // Initialize cursor for pagination
-        do {
-            // Fetch list of channels with pagination support
-            const response = yield slackClient.conversations.list({
-                exclude_archived: true,
-                types: "public_channel,private_channel", // Specify channel types to include
-                cursor,
-            });
-            // Find channel by name and return its ID
-            const foundChannel = (_f = response.channels) === null || _f === void 0 ? void 0 : _f.find((channel) => channel.name === cleanChannelName);
-            if (foundChannel) {
-                return foundChannel.id;
-            }
-            // Update cursor for next page
-            cursor = (_g = response.response_metadata) === null || _g === void 0 ? void 0 : _g.next_cursor;
-        } while (cursor); // Continue while there are more pages
-        console.error("Channel not found");
-    }
-    catch (error) {
-        console.error("Error fetching channels:", error);
-    }
+    // Hardcoded channel IDs with explicit type
+    const channelIds = {
+        "marketing-design-team": "C06KSEU6YAC",
+        "website-pdc": "C03U4Q0T23W",
+    };
+    // Normalize channel name by removing leading '#'
+    const cleanChannelName = channelName.replace(/^#/, "");
+    return channelIds[cleanChannelName];
 });
 // Define the route for your Slack slash command
 app.post("/slack/summary", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     // Extract the text and user_id from the request body
     const { text, user_id } = req.body;
-    // Parse command input for detail level, channel name, and days back to fetch messages
-    const [, detailLevel, channelName, daysInput] = text.split(" ");
+    // Split the text into parts
+    const parts = text.split(" ");
+    // Ensure there are at least three parts: detailLevel, channelName, and daysInput
+    if (parts.length < 3) {
+        res.json({
+            response_type: "ephemeral",
+            text: "Please provide the command in the format: /summary [low|high] #channel-name [number]d",
+        });
+        return;
+    }
+    // Assign the first part to detailLevel, the last part to daysInput, and join the rest as the channelName
+    const detailLevel = parts[0];
+    const daysInput = parts[parts.length - 1];
+    const channelName = parts.slice(1, -1).join(" ");
     // Resolve channel name to channel ID
     const channelId = yield findChannelIdByName(channelName);
     if (!channelId) {
@@ -189,9 +186,6 @@ app.post("/slack/summary", (req, res) => __awaiter(void 0, void 0, void 0, funct
         });
     }
 }));
-app.get("/", (req, res) => {
-    res.sendFile(path_1.default.join(__dirname, "public", "index.html"));
-});
 // Start the server
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
