@@ -79,19 +79,47 @@ const fetchChannelMessages = (channelId, oldest, latest) => __awaiter(void 0, vo
     }
 });
 // Function to summarize text using OpenAI with a specified detail level
+// const summarizeText = async (text: string, detailLevel: "low" | "high") => {
+//   try {
+//     console.log(`Summarizing text with detail level ${detailLevel}`);
+//     // Determine prompt based on detail level
+//     const prompt = detailLevel === "low" ? "Provide a brief summary:" : "Provide a detailed summary:";
+//     // Create chat completion with OpenAI using the determined prompt and input text
+//     const response = await openAI.chat.completions.create({
+//       model: "gpt-3.5-turbo", // Specify model
+//       messages: [
+//         {
+//           role: "system",
+//           content:
+//             "You are a helpful assistant who creates succinct summaries of Slack channel messages. I will provide the messages in json format, and you should write the summary in a markdown style. Each message will include a unix time stamp (ts) which you can use to organize your summary chronologically if it spans more than one week.",
+//         },
+//         {
+//           role: "user",
+//           content: `${prompt}\n\n${text}`,
+//         },
+//       ],
+//     });
+//     // Return the summary, trim whitespace, return empty string if no content
+//     return response.choices[0]?.message.content?.trim() ?? "";
+//   } catch (error) {
+//     console.error("Error summarizing text:", error);
+//   }
+// };
+// Function to summarize text using OpenAI with a specified detail level
 const summarizeText = (text, detailLevel) => __awaiter(void 0, void 0, void 0, function* () {
     var _b, _c, _d;
     try {
-        console.log(`Summarizing text with detail level ${detailLevel}`);
         // Determine prompt based on detail level
-        const prompt = detailLevel === "low" ? "Provide a brief summary:" : "Provide a detailed summary:";
+        const prompt = detailLevel === "low"
+            ? "Keep this summary concise and to the point:"
+            : "Create a summary that encapsulates the essence of the message, highlighting the primary points and conclusions. Utilize bullet points or lists to organize the information clearly. Pay special attention to maintaining the tone and intent of the original message:";
         // Create chat completion with OpenAI using the determined prompt and input text
         const response = yield openAI.chat.completions.create({
             model: "gpt-3.5-turbo", // Specify model
             messages: [
                 {
                     role: "system",
-                    content: "You are a helpful assistant whose purpose is to give people summaries of the messages you recieve.",
+                    content: "You are a helpful assistant who creates succinct summaries of Slack channel messages. I will provide the messages in json format, and you should write the summary in a markdown style. Each message will include a unix time stamp (ts) which you can use to organize your summary chronologically if it spans more than one week.",
                 },
                 {
                     role: "user",
