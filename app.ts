@@ -145,6 +145,8 @@ const channelIds: { [key: string]: string } = {
   "seo-and-content": "C045Q1W6AH2",
   "hackathon-lazy-slack-club": "C06NEARE0M9",
 };
+// Hardcoded user whitelist for security
+const userIdWhitelist = new Set(["U01HFBY3XGX", "U042J4T4B", "U0413GXHSHW", "U02PC6Z1S", "U02AULEAG", "U052D6423P0", "U0ES3F3U3", "U04JBJG1WNS", "U57MPQ8HY", "U04Q35M65KN", "U02EG90CQU9", "U04UB4ZBKBQ", "U03BJ5BDABY"]);
 
 // Function to find a channel ID by its name
 const findChannelIdByName = async (channelName: string): Promise<string | undefined> => {
@@ -159,17 +161,29 @@ const findChannelIdByName = async (channelName: string): Promise<string | undefi
 // Define the route for your Slack slash command
 app.post("/slack/summary", async (req: Request, res: Response) => {
   console.log("Received Slack command:", req.body);
-  // Extract the response_url from the request body
+  // Extract the response_url and user_id from the request body
   const responseUrl = req.body.response_url;
+  const userId = req.body.user_id;
+
+  // Check if the user is in the whitelist
+  if (!userIdWhitelist.has(userId)) {
+    // User is not in the whitelist, send an error message
+    console.error(`User ${userId} is not authorized to use this command.`);
+    if (responseUrl) {
+      // Send a message to the response_url indicating the user is not authorized
+      await axios.post(responseUrl, {
+        replace_original: "true",
+        text: `Sorry, you are not authorized to use this command.`,
+      });
+    }
+    return; // Stop processing the request
+  }
 
   // Immediately acknowledge the Slack command
   res.status(200).send("Processing your request. Please wait...");
 
   // Then, process the request asynchronously
   (async () => {
-    // Assuming the user ID is part of the request body, typically under `user_id` for Slack commands
-    const userId = req.body.user_id;
-
     if (!userId) {
       res.json({
         response_type: "ephemeral",
