@@ -50,8 +50,13 @@ const fetchChannelMessages = async (channelId: string, oldest: string, latest: s
       ?.map((msg) => {
         // Extract the user ID from the message sender
         const userId = msg.user; // Adjust based on actual structure
-        // Ensure userId is defined before attempting to use it as a key
-        const username = userId && userMap.has(userId) ? userMap.get(userId) || "Unknown User" : "Unknown User";
+        let username = "Unknown User"; // Default username
+        if (userId) {
+          const usernameLookup = userMap.get(userId); // Attempt to retrieve the username
+          if (usernameLookup) {
+            username = usernameLookup; // Use the username if available
+          }
+        }
         // Prepend the username to the message text
         return `${username}: ${msg.text}`;
       })

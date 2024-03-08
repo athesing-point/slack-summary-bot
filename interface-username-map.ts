@@ -30,7 +30,7 @@ export function replaceUserIdsWithUsernames(summary: string, userMap: Map<string
 }
 
 // Uncomment the example usage and adjust the file path as needed
-const userMap = loadUserMappings("./slack-users-clean.json");
-const summary = "This is a message from <@USLACKBOT> and <@U02ASPNS1>.";
-const updatedSummary = replaceUserIdsWithUsernames(summary, userMap);
-console.log(updatedSummary);
+// const userMap = loadUserMappings("./slack-users-clean.json");
+// const summary = "This is a message from <@USLACKBOT> and <@U02ASPNS1>.";
+// const updatedSummary = replaceUserIdsWithUsernames(summary, userMap);
+// console.log(updatedSummary);
