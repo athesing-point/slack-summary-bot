@@ -149,8 +149,7 @@ const channelIds: { [key: string]: string } = {
   "analytics": "C02MQASBMHQ",
 };
 // Hardcoded user whitelist for security
-// const userIdWhitelist = new Set(["U01HFBY3XGX", "U042J4T4B", "U0413GXHSHW", "U02PC6Z1S", "U02AULEAG", "U052D6423P0", "U0ES3F3U3", "U04JBJG1WNS", "U57MPQ8HY", "U04Q35M65KN", "U02EG90CQU9", "U04UB4ZBKBQ", "U03BJ5BDABY"]);
-const userIdWhitelist = new Set<string>(["U01HFBY3XGX", "U042J4T4B", "U0413GXHSHW", "U02PC6Z1S", "U02AULEAG", "U052D6423P0", "U0ES3F3U3", "U04JBJG1WNS", "U57MPQ8HY", "U04Q35M65KN", "U02EG90CQU9", "U04UB4ZBKBQ"]);
+const userIdWhitelist = new Set<string>(["U01HFBY3XGX", "U042J4T4B", "U0413GXHSHW", "U02PC6Z1S", "U02AULEAG", "U052D6423P0", "U0ES3F3U3", "U04JBJG1WNS", "U57MPQ8HY", "U04Q35M65KN", "U02EG90CQU9", "U04UB4ZBKBQ", "U03BJ5BDABY"]);
 
 // Function to find a channel ID by its name
 const findChannelIdByName = async (channelName: string): Promise<string | undefined> => {
@@ -178,14 +177,44 @@ app.post("/slack/summary", async (req: Request, res: Response) => {
       // Send a message to the response_url indicating the user is not authorized
       await axios.post(responseUrl, {
         replace_original: "true",
-        text: `Sorry, you are not authorized to use this command.`,
+        text: `:no_entry: Sorry, you are not authorized to use this command.`,
       });
     }
     return res.status(403).send("Sorry, you are not authorized to use this command.");
   }
 
-  // Immediately acknowledge the Slack command
-  res.status(200).send("Processing your request. Please wait...");
+  // Trim the text and split by one or more spaces
+  const parts = req.body.text.trim().split(/\s+/);
+  if (parts.length < 3) {
+    return res.json({
+      response_type: "ephemeral",
+      text: "Please provide the command in the format: /summary [detailLevel] [channelName] [days]",
+    });
+  }
+  const [detailLevel, channelName, daysInput] = parts;
+
+  // Immediately after parsing daysInput and converting it to an integer
+  const days = parseInt(daysInput.replace(/[^\d]/g, ""), 10);
+  if (isNaN(days) || days < 1) {
+    return res.json({
+      response_type: "ephemeral",
+      text: ":warning: Please provide a valid number of days in this format ex: 4d.",
+    });
+  }
+
+  if (days > 10) {
+    // If the requested number of days exceeds 10, inform the user and stop processing
+    return res.json({
+      response_type: "ephemeral",
+      text: ":warning: Please retry your request with a timespan of 10 days or less.",
+    });
+  }
+
+  // If the days are within the allowed range, continue processing
+  res.json({
+    response_type: "ephemeral",
+    text: "Processing your request. Please wait...",
+  });
 
   // Then, process the request asynchronously
   (async () => {
@@ -197,17 +226,6 @@ app.post("/slack/summary", async (req: Request, res: Response) => {
       return;
     }
 
-    // Trim the text and split by one or more spaces
-    const parts = req.body.text.trim().split(/\s+/);
-    if (parts.length < 3) {
-      res.json({
-        response_type: "ephemeral",
-        text: "Please provide the command in the format: /summary [detailLevel] [channelName] [days]",
-      });
-      return;
-    }
-    const [detailLevel, channelName, daysInput] = parts;
-
     // Resolve channel name to channel ID
     const channelId = await findChannelIdByName(channelName);
     console.log(`Channel ID for "${channelName}":`, channelId);
@@ -217,7 +235,6 @@ app.post("/slack/summary", async (req: Request, res: Response) => {
     }
 
     // Calculate time range for message fetching
-    const days = parseInt(daysInput.replace(/[^\d]/g, ""), 10);
     const now = new Date();
     const oldestDate = new Date(now.setDate(now.getDate() - days));
     const oldest = Math.floor(oldestDate.getTime() / 1000).toString();
@@ -248,7 +265,7 @@ app.post("/slack/summary", async (req: Request, res: Response) => {
         // Send a message to the response_url indicating the summary has been sent
         await axios.post(responseUrl, {
           replace_original: "true",
-          text: `Summary sent successfully to <@${userId}>.`,
+          text: `Summary sent successfully to <@${userId}>. :tada: :rocket:`,
         });
       }
     }
