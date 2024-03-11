@@ -257,7 +257,7 @@ app.post("/slack/summary", async (req: Request, res: Response) => {
       const updatedSummary = replaceUserIdsWithUsernames(summary, userMapForSummary);
       console.log(`Generated summary:`, updatedSummary);
       // Right before calling sendDM, ensure the summary header is constructed correctly
-      const summaryHeader = `Here's the summary for #${channelName} over the last ${days} day(s):\n\n`;
+      const summaryHeader = `Here's the summary for ${channelName} over the last ${days} day(s):\n\n`;
       const finalSummary = summaryHeader + updatedSummary; // Ensure this concatenation happens once
       await sendDM(userId, finalSummary);
       console.log(`Sent DM to user ${userId}`);
