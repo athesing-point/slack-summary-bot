@@ -86,7 +86,7 @@ const summarizeText = async (text: string, detailLevel: "low" | "high"): Promise
         {
           role: "system",
           content:
-            "You are a helpful assistant who creates succinct summaries of Slack channel messages. I will provide the messages in json format, and you should write the summary in Slack's unique markdown style. Each message will include a unix time stamp (ts) which you can use to organize your summary chronologically if it spans more than one week.",
+            "You are a helpful assistant who creates succinct summaries of Slack channel messages. I will provide the messages in json format, and it is important that you write the summary with bullets, and asterisks (*) to show bold text as we are using Slack's unique markdown style. Each message will include a unix time stamp (ts) which you can use to organize your summary chronologically if it spans more than one week.",
         },
         {
           role: "user",
