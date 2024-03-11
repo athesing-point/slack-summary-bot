@@ -140,10 +140,13 @@ const sendDM = async (userId: string, text: string) => {
 // Function to find a channel ID by its name
 // Hardcoded channel IDs mapping with an index signature
 const channelIds: { [key: string]: string } = {
+  "hackathon-lazy-slack-club": "C06NEARE0M9",
   "marketing-design-team": "C06KSEU6YAC",
   "website-pdc": "C03U4Q0T23W",
   "seo-and-content": "C045Q1W6AH2",
-  "hackathon-lazy-slack-club": "C06NEARE0M9",
+  "team-prod-dev": "C60CJ4SD8",
+  "general": "C02ASPNS7",
+  "analytics": "C02MQASBMHQ",
 };
 // Hardcoded user whitelist for security
 // const userIdWhitelist = new Set(["U01HFBY3XGX", "U042J4T4B", "U0413GXHSHW", "U02PC6Z1S", "U02AULEAG", "U052D6423P0", "U0ES3F3U3", "U04JBJG1WNS", "U57MPQ8HY", "U04Q35M65KN", "U02EG90CQU9", "U04UB4ZBKBQ", "U03BJ5BDABY"]);
