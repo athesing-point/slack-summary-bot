@@ -6,7 +6,7 @@ import * as dotenv from "dotenv"; // Import dotenv for environment variable mana
 import path from "path";
 import axios from "axios"; // Import axios for making HTTP requests
 import { filterMessages } from "./interface"; // Import filterMessages for message sanitization
-import { replaceUserIdsWithUsernames, loadUserMappings } from "./interface-username-map";
+import { replaceUserIdsWithUsernames, loadUserMappings } from "./interface-username-map"; // reduce slack api calls by referencing the user map
 
 dotenv.config(); // Load environment variables from .env file
 
