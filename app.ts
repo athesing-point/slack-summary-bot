@@ -81,7 +81,8 @@ const summarizeText = async (text: string, detailLevel: "low" | "high"): Promise
 
     // Create chat completion with OpenAI using the determined prompt and input text
     const response = await openAI.chat.completions.create({
-      model: "gpt-3.5-turbo", // Specify model
+      // model: "gpt-3.5-turbo", // Specify model
+      model: "gpt-4-0125-preview",
       messages: [
         {
           role: "system",
