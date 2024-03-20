@@ -38,36 +38,48 @@ const userMap: Map<string, User> = new Map(Array.from(loadUserMappings(path.join
 
 // Function to fetch messages from a Slack channel within a given time range
 const fetchChannelMessages = async (channelId: string, oldest: string, latest: string) => {
-  try {
+  interface SlackMessage {
+    type: string;
+    user: string;
+    text: string;
+    ts: string;
+    // Add more properties as needed
+  }
+
+  let allMessages: Array<SlackMessage> = [];
+  let cursor;
+  do {
     console.log(`Fetching messages for channel ${channelId} from ${oldest} to ${latest}`);
     // Fetch conversation history using Slack API
     const response = await slackClient.conversations.history({
       channel: channelId,
       oldest,
       latest,
-      limit: 1000, // Set message fetch limit
+      limit: 200, // Adjust based on your needs
+      cursor: cursor,
     });
 
-    // Assuming response.messages is an array of message objects
-    const detailedMessages = response.messages
-      ?.map((msg) => {
-        // Extract the user ID from the message sender
-        const userId = msg.user; // Adjust based on actual structure
-        let username = "Summary Ship"; // Default username
-        if (userId) {
-          const userObject = userMap.get(userId); // Attempt to retrieve the user object
-          if (userObject) {
-            username = userObject.display_name; // Use the display name if available
-          }
+    allMessages = allMessages.concat(response.messages as SlackMessage[]);
+    cursor = response.response_metadata?.next_cursor;
+  } while (cursor);
+
+  // Assuming allMessages is an array of message objects
+  const detailedMessages = allMessages
+    ?.map((msg) => {
+      // Extract the user ID from the message sender
+      const userId = msg.user; // Adjust based on actual structure
+      let username = "Summary Ship"; // Default username
+      if (userId) {
+        const userObject = userMap.get(userId); // Attempt to retrieve the user object
+        if (userObject) {
+          username = userObject.display_name; // Use the display name if available
         }
-        // Prepend the username to the message text
-        return `${username}: ${msg.text}`;
-      })
-      .join("\n");
-    return detailedMessages;
-  } catch (error) {
-    console.error("Error fetching messages:", error);
-  }
+      }
+      // Prepend the username to the message text
+      return `${username}: ${msg.text}`;
+    })
+    .join("\n");
+  return detailedMessages;
 };
 
 // Function to summarize text using OpenAI with a specified detail level
@@ -81,7 +93,6 @@ const summarizeText = async (text: string, detailLevel: "low" | "high"): Promise
 
     // Create chat completion with OpenAI using the determined prompt and input text
     const response = await openAI.chat.completions.create({
-      // model: "gpt-3.5-turbo", // Specify model
       model: "gpt-4-0125-preview",
       messages: [
         {
@@ -252,15 +263,14 @@ app.post("/slack/summary", async (req: Request, res: Response) => {
       // Apply user map to replace user IDs with usernames before summarization
       const messagesWithUsernames = replaceUserIdsWithUsernames(sanitizedMessages.map((msg) => msg.text).join("\n"), userMapForReplacement);
       console.log("Before summarization, messages with usernames:", messagesWithUsernames);
-      const summary = await summarizeText(messagesWithUsernames, detailLevel as "low" | "high");
-      // Assuming `summary` is your message summary or concatenated messages
+      const summary = await summarizeText(messagesWithUsernames, detailLevel); // Use detailLevel here
+      console.log(`Generated summary:`, summary);
       const userMapForSummary = new Map<string, string>(Array.from(userMap.entries()).map(([id, user]) => [id, user.display_name]));
       const updatedSummary = replaceUserIdsWithUsernames(summary, userMapForSummary);
-      console.log(`Generated summary:`, updatedSummary);
-      // Right before calling sendDM, ensure the summary header is constructed correctly
+      console.log(`Generated summary with usernames:`, updatedSummary);
       const summaryHeader = `Here's the summary for ${channelName} over the last ${days} day(s):\n\n`;
-      const finalSummary = summaryHeader + updatedSummary; // Ensure this concatenation happens once
-      await sendDM(userId, finalSummary);
+      const finalSummaryText = summaryHeader + updatedSummary; // Ensure this concatenation happens once
+      await sendDM(userId, finalSummaryText);
       console.log(`Sent DM to user ${userId}`);
       if (responseUrl) {
         // Send a message to the response_url indicating the summary has been sent
